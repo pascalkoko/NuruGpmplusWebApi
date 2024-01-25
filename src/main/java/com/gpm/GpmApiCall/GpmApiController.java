@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/gpm/api")
 public class GpmApiController {
     
-	private GpmPlusApiDataDownloader gpmPlusApiDataDownloader;
+/*	private GpmPlusApiDataDownloader gpmPlusApiDataDownloader;
 	
 	public GpmApiController(GpmPlusApiDataDownloader gpmPlusApiDataDownloader) {
 		this.gpmPlusApiDataDownloader = gpmPlusApiDataDownloader;
@@ -37,4 +37,5 @@ public class GpmApiController {
 	public   DataList[] getDataList(){
 		return gpmPlusApiDataDownloader.fetchDataList("KIVUE", "PV Generation Meter", "EXPORTED ACTIVE ENERGY", "2023-11-01 10:00:00", "2023-11-01 09:59:59");
 	}
+	*/
 }

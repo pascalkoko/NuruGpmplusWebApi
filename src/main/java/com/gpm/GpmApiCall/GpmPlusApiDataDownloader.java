@@ -4,6 +4,8 @@ package com.gpm.GpmApiCall;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.TimeZone;
 
@@ -25,16 +27,13 @@ public class GpmPlusApiDataDownloader {
 	private static final Logger LOG = LoggerFactory.getLogger(GpmPlusApiDataDownloader.class);
 	RestTemplate restTemplate;
 	private PropertiesGpmPlus propertiesGpmPlus;
-	String plantsURL;
-	String elementsURL;
-	String datasourcesURL;
-	String dataListURL;
-
 	
-	// Each Plant(Site) is identified by its ID and has a specific name
-	//private Plant[] plants;
-	
-	
+	String startDate ="2023-11-01 10:00:00 AM";
+	String  endDate = "2023-11-01 11:00:00 AM";
+	Collection<GpmExcelDTO> excelDTOs;
+    GpmExcelDTO excelDTO;
+    String dateReport;
+    
 
 	public GpmPlusApiDataDownloader(
 			PropertiesGpmPlus propertiesGpmPlus) {
@@ -42,125 +41,197 @@ public class GpmPlusApiDataDownloader {
 		this.propertiesGpmPlus = propertiesGpmPlus;
 		this.restTemplate = new RestTemplate();
 	}
-
-
-	public PropertiesGpmPlus getPropertiesGpmPlus() {
-		return propertiesGpmPlus;
-	}
-	public void setPropertiesGpmPlus(PropertiesGpmPlus propertiesGpmPlus) {
-		this.propertiesGpmPlus = propertiesGpmPlus;
-	}
-
      /*
-	  -----This method return the ID for a specific Plant given Name
+	  -----return a collection of 
 	 */
-	private int getPlantId_By_PlantName(String plantName) {
+	public Collection<GpmExcelDTO>  get_Gpm_Reports() {
+		
+		excelDTO = new GpmExcelDTO();
+		excelDTOs = new HashSet<GpmExcelDTO>();
+		
+		long strDate = System.currentTimeMillis();
+		
+		Plant[] plants = fetchPlants();
+		DataSource[] element_Datasources;
+		
+		for (Plant plant : plants) {
+			
+			if (plant.getName().equals("KIVUE")) {				
+				
+				GpmExcelDTO goma_gpmReport = new GpmExcelDTO();	
+				goma_gpmReport.setSiteName(plant.getName());
+				
+				double kwh_Genset1=0;
+				double kwh_Genset2 = 0;
+				
+				Element[] plantElements = fetchPlantElements(plant.getId());
+			
+				for (Element element : plantElements) {
+					
+					if (element.getName().equals("Main Meter")) {
+						
+						element_Datasources = fetchElementDataSources(plant.getId(), element.getIdentifier());
+						
+						for (DataSource dataSource : element_Datasources) {
+							if (dataSource.getDataSourceName().equals("EXPORTED ACTIVE ENERGY")) {
+								
+								int dataSource_ID = dataSource.getDataSourceId();
+								
+								goma_gpmReport.setKwh_MainMeter(get_kwh(dataSource_ID, element));						}
+						}
+						
+					}else if (element.getName().equals("PV Generation Meter")) {
+						
+						element_Datasources = fetchElementDataSources(plant.getId(), element.getIdentifier());
+						
+						for (DataSource dataSource : element_Datasources) {
+							if (dataSource.getDataSourceName().equals("EXPORTED ACTIVE ENERGY")) {
+								
+								int dataSource_ID = dataSource.getDataSourceId();
+								
+								goma_gpmReport.setKwh_SolarMeter(get_kwh(dataSource_ID, element));
+							}
+						}
+						
+					}else if (element.getName().equals("Genset 1 Meter")) {
+						
+						element_Datasources = fetchElementDataSources(plant.getId(), element.getIdentifier());
+						
+						for (DataSource dataSource : element_Datasources) {
+							if (dataSource.getDataSourceName().equals("EXPORTED ACTIVE ENERGY")) {
+								
+								int dataSource_ID = dataSource.getDataSourceId();
+								
+								kwh_Genset1 = get_kwh(dataSource_ID, element);
+						
+							}
+						}
+						
+					}else if (element.getName().equals("Genset 2 Meter")) {
+						
+						element_Datasources = fetchElementDataSources(plant.getId(), element.getIdentifier());
+						
+						for (DataSource dataSource : element_Datasources) {
+							if (dataSource.getDataSourceName().equals("EXPORTED ACTIVE ENERGY")) {
+								
+								int dataSource_ID = dataSource.getDataSourceId();
+								kwh_Genset2 = get_kwh(dataSource_ID, element);
+							}
+						}
+						
+					}	
+					goma_gpmReport.setKwh_Genset(kwh_Genset1 + kwh_Genset2);
+					goma_gpmReport.setDate(dateReport);
+					excelDTOs.add(goma_gpmReport);
+				}
+				
+				
+			}else if (plant.getName().equals("Tadu") || plant.getName().equals("Faradje")) {
+				
+				GpmExcelDTO tadu_gpmReport = new GpmExcelDTO();	
+				GpmExcelDTO faradje_gpmReport = new GpmExcelDTO();
+				
+				if (plant.getName().equals("Tadu")) {
 
-		int plant_ID = 0;
-		if (fetchPlants() != null) {
-			for (Plant plant : fetchPlants()) {
-				if (plant.getName().equals(plantName)) {
-					plant_ID =  plant.getId();
-				}
-			} 	
-		}
-		return plant_ID;
-	}
-	
+					tadu_gpmReport.setSiteName(plant.getName());
+					
+				} else if (plant.getName().equals("Faradje")) {
 
-     /*
-      ------This method return the Identifier for a specific Element given Name
-	 */
-	private int getElementID_By_ElementName(String plantName, String elementName ) {
+					faradje_gpmReport.setSiteName(plant.getName());
+				}
+				
+				Element[] elements = fetchPlantElements(plant.getId());
+				
+				for (Element element : elements) {
+					if (element.getName().equals("Meter Load")) {
+						
+						element_Datasources = fetchElementDataSources(plant.getId(), element.getIdentifier());
+						
+						for (DataSource dataSource : element_Datasources) {
+							if (dataSource.getDataSourceName().equals("EXPORTED ACTIVE ENERGY")) {
+								
+								int dataSource_ID = dataSource.getDataSourceId();
+								
+								if (plant.getName().equals("Tadu")) {
+									
+									tadu_gpmReport.setKwh_MainMeter(get_kwh(dataSource_ID, element));
+									
+								} else if (plant.getName().equals("Faradje")){
+									
+									faradje_gpmReport.setKwh_MainMeter(get_kwh(dataSource_ID, element));
+								}
+							}
+						}
+						
+					}else if (element.getName().equals("Meter Solar PV")) {
+						
+						element_Datasources = fetchElementDataSources(plant.getId(), element.getIdentifier());
+						for (DataSource dataSource : element_Datasources) {
+							if (dataSource.getDataSourceName().equals("EXPORTED ACTIVE ENERGY")) {
+								
+								int dataSource_ID = dataSource.getDataSourceId();
+								
+								if (plant.getName().equals("Tadu")) {
+									
+									tadu_gpmReport.setKwh_SolarMeter(get_kwh(dataSource_ID, element));
+									
+								} else if (plant.getName().equals("Faradje")){
+									
+									faradje_gpmReport.setKwh_SolarMeter(get_kwh(dataSource_ID, element));
+								}
+							}
+						}
+						
+					}else if (element.getName().equals("Meter Diesel Generator")) {
+						
+						element_Datasources = fetchElementDataSources(plant.getId(), element.getIdentifier());
+						for (DataSource dataSource : element_Datasources) {
+							if (dataSource.getDataSourceName().equals("EXPORTED ACTIVE ENERGY")) {
+								
+								int dataSource_ID = dataSource.getDataSourceId();
+								
+								if (plant.getName().equals("Tadu")) {
+									
+									tadu_gpmReport.setKwh_Genset(get_kwh(dataSource_ID, element));
+									
+								} else if (plant.getName().equals("Faradje")){
+									
+									faradje_gpmReport.setKwh_Genset(get_kwh(dataSource_ID, element));
+								}
+								
+							}
+						}
+						
+					}
+				}
+				tadu_gpmReport.setDate(dateReport); 
+				faradje_gpmReport.setDate(dateReport);
+				excelDTOs.add(tadu_gpmReport); 
+				excelDTOs.add(faradje_gpmReport);
+			}
 
-		int element_Identifier = 0;
-		
-		if (fetchPlantElements(plantName) != null) {
-			for (Element element : fetchPlantElements(plantName)) {
-				if (element.getName().equals(elementName)) {
-					
-					element_Identifier =  element.getIdentifier();
-				}
-			} 	
-		}
-		return element_Identifier;
-	}
-	
-	
-    /*
-    ------This method return the dataSource ID for a specific dataSource , we need this dataSource to get data related to a site production per day
-	*/
-	private int getDataSourceID_By_DatasourceName(String plantName, String elementName, String dataSourceName) {
-		
-		int dataSourceId = 0;
-		
-		if (fetchElementDataSources(plantName, elementName)!= null) {
 			
-			for (DataSource dataSource : fetchElementDataSources(plantName,elementName)) {
-				if (dataSource.getDataSourceName().equals(dataSourceName)) {
-					
-					dataSourceId =  dataSource.getDataSourceId();
-				}
-			}	
 		}
-		return dataSourceId;	
+		System.out.println(" \n Time taken to call all endpoints and retreive final data :"+((System.currentTimeMillis() - strDate)));
+		return excelDTOs;
 	}
+
+
+	//  return the real value  of energy in kwh  for each element
 	
-	
-    /*
-    	------return the energy in kWh
-	*/
-	public double get_Energy_In_Kwh(String plantName, String elementName, String dataSourceName, String startDate, String endDate) {
-		
-		double kWh_Energy = 0;
-		
-		if (fetchDataList(plantName, elementName, dataSourceName, startDate, endDate)!= null) {
+	private double get_kwh(int datasourceID, Element element) {
+
+		DataList[] dataLists = fetchDataList(datasourceID, startDate, endDate);
+		if (dataLists != null && dataLists.length ==1) {    
+	     
+			dateReport = dataLists[0].getDate(); 
 			
-			for (DataList specificdataList : fetchDataList(plantName, elementName, dataSourceName, startDate, endDate)) {		
-					
-					kWh_Energy =  specificdataList.getValue();
-			}	
+		}else {
+			throw new RuntimeException(" The request fetch dataList returned more than one object");
 		}
-		return kWh_Energy;	
+		return dataLists[0].getValue();
 	}
 	
-	/*
-	  ------return the date
-	*/
-	public String getDateReport(String plantName, String elementName, String dataSourceName, String startDate, String endDate) {
-		
-		String date = null;
-		
-		if (fetchDataList(plantName, elementName, dataSourceName, startDate, endDate)!= null) {
-			
-			for (DataList specificdataList : fetchDataList(plantName, elementName, dataSourceName, startDate, endDate)) {		
-					
-					date =  specificdataList.getDate();
-			}	
-		}
-		return date;	
-	}
-	
-	
-    /*
-    ------We need this method to get the correct value of the datasource Units from the API. We do not need the define this value manualy because it is defined from the API
-	*/
-	private String determineDatasourceUnits(String plantName, String elementName, String dataSourceName) {
-		
-		String units = null;
-		
-		if (fetchElementDataSources(plantName, elementName)!= null) {
-			
-			for (DataSource dataSource : fetchElementDataSources(plantName,elementName)) {
-				if (dataSource.getDataSourceName().equals(dataSourceName)) {
-					
-					units =  dataSource.getUnits();
-				}
-			}	
-		}
-		return units;	
-	}
-	 
 	
 	 /*
     	------build the request
@@ -184,153 +255,77 @@ public class GpmPlusApiDataDownloader {
 	 */ 
 	public Plant[] fetchPlants() {
 		
-		   /*
-			 JSON Response from the API
-			    { 
-				  "_alertIcon": "NotSpecified",
-				  "ElementCount": 0,
-				  "Id": 0,
-				  "Name": "string",
-				  "DatasourcesCount": 0,
-				  "AlarmColor": 0,
-				  "UniqueID": "00000000-0000-0000-0000-000000000000",
-				  "Parameters": [
-				    {
-				      "Key": "string",
-				      "Value": "string"
-				    }
-				  ]
-				}
-		   */
-		
-		plantsURL= this.propertiesGpmPlus.getGpmPlusWebApi().getUrl() 
+		String plantsURL= this.propertiesGpmPlus.getGpmPlusWebApi().getUrl() 
 				+ "/api/Plant";
 		
 		HttpEntity<HttpHeaders> request = build_the_request();
-		
+//		long start =System.currentTimeMillis();				
 		ResponseEntity<Plant[]> response = restTemplate.exchange(
 													plantsURL, 
 													HttpMethod.GET, 
 													request, 
 													Plant[].class);   
 		
+//		System.out.println("plants  fetch time: " + (System.currentTimeMillis()-start)+ "    "+ plantsURL);			
 		return response.getBody();
 	}
 	
 	
 	
 	/*
-	 * ----------------------- Fetch all Elements(devices) installed for a given Plants  for different nuru sites(plants)--------------------
-	 * with this method we are getting data for all devices that are installed at a nuru site (Goma, Tadu and Faradje sites);we have to specify a given site name 
-	 * for which we want to get elements that are installed
+	 * ----------------Fetch all plant Elements--------------------
+	 *  
 	 */
-	public Element[] fetchPlantElements(String plantName){
+	public Element[] fetchPlantElements(int plant_ID){
 		
 		//static String elementsURL = "api/Plant/{4}/Element";
-		elementsURL = this.propertiesGpmPlus.getGpmPlusWebApi().getUrl() 
+		String elementsURL = this.propertiesGpmPlus.getGpmPlusWebApi().getUrl() 
 				+ "/api/Plant"
-				+ "/"+ getPlantId_By_PlantName(plantName)
+				+ "/"+ plant_ID
 				+ "/Element";
 		
 		HttpEntity<HttpHeaders> request = build_the_request();
-		
-//		LOG.info("\n\n----------------------------------------------------------------------------------------------------------");
-//		LOG.info("Endpoint for the request : "+ elementsURL+"");
-		
+
+//		long start =System.currentTimeMillis();	
 		ResponseEntity<Element[]> response = restTemplate.exchange(
 													elementsURL, 
 													HttpMethod.GET, 
 													request, 
 													Element[].class);  
 		
-		Element[] plantElementsFromGpmApi = response.getBody();
-		
-/*		System.out.println("[");
-		
-		if (plantElementsFromGpmApi != null) {
-			for (Element element : plantElementsFromGpmApi) {
-				
-				System.out.println(" {\n"
-						+ "  Identifier :"+ element.getIdentifier()
-						+","
-						+ "\n"
-						+ "  UniqueID : "+ element.getUniqueID()
-						+","
-						+ "\n"
-						+ "  Name : "+ element.getName()
-						+","
-						+ "\n"
-						+ "  Type : "+ element.getType()
-						+","
-						+ "\n"
-						+ "  TypeString : "+ element.getTypeString()
-						+","
-						+ "\n"
-						+ "  ParentId : "+ element.getParentId()
-						+"\n"
-						+" }");
-				
-			}
-			System.out.println("]\n");
-
-		} 
-*/		
+//		System.out.println("Elements  fetch time: " + (System.currentTimeMillis()-start)+ "    "+ elementsURL);		
+		Element[] plantElementsFromGpmApi = response.getBody();	
 		return plantElementsFromGpmApi;
 	}
 	
 	
 	
 	/*
-	 * ----------------Fetch all dataSource  for a given   plant's device (element)--------------------
-	 * Each device has a list of dataSource , with this method we get all device's datasource.  we have to specify the site name  and the device name to get different 
-	 * datasources so that we can choose the datasource that correspond to energy production (kwh).
+	 * ----------------Fetch all dataSources--------------------
+	 *  
 	 */
-	public DataSource[] fetchElementDataSources(String plantName, String elementName) {
+	public DataSource[] fetchElementDataSources(int plant_ID, int element_ID) {
 		
 		//String datasourcesURL = "api/Plant/{4}/Element/{8815}/Datasource";
-		datasourcesURL =this.propertiesGpmPlus.getGpmPlusWebApi().getUrl() 
+		String datasourcesURL =this.propertiesGpmPlus.getGpmPlusWebApi().getUrl() 
 				+ "/api/Plant"
-				+ "/" + getPlantId_By_PlantName(plantName)
+				+ "/" + plant_ID
 				+ "/Element"
-				+ "/" + getElementID_By_ElementName(plantName, elementName)
+				+ "/" + element_ID
 				+ "/Datasource";
 		
+			
+		
 		HttpEntity<HttpHeaders> request = build_the_request();
-		
-//		LOG.info("\n\n----------------------------------------------------------------------------------------------------------");
-//		LOG.info("Endpoint for the request : "+ datasourcesURL+"");
-		
+//		long start =System.currentTimeMillis();				
 		ResponseEntity<DataSource[]> response = restTemplate.exchange(
 													datasourcesURL, 
 													HttpMethod.GET, 
 													request, 
 													DataSource[].class);  
 		
+//		System.out.println("datasource  fetch time: " + (System.currentTimeMillis()-start) + "    "+ datasourcesURL);	
 		DataSource[] deviceDataSources = response.getBody();
-		
-/*		System.out.println("[");
-		
-		if (deviceDataSources != null) {
-			for (DataSource dataSource : deviceDataSources) {
-				
-				System.out.println(" {\n"
-						+ "  ElementId :"+ dataSource.getElementId()
-						+","
-						+ "\n"
-						+ "  DataSourceId : "+ dataSource.getDataSourceId()
-						+","
-						+ "\n"
-						+ "  DataSourceName : "+ dataSource.getDataSourceName()
-						+","
-						+ "\n"
-						+ "  Units : "+ dataSource.getUnits()
-						+"\n"
-						+" }");
-				
-			}
-			System.out.println("]\n");
-		}
-*/
 		return deviceDataSources;
 	}
 	
@@ -339,60 +334,40 @@ public class GpmPlusApiDataDownloader {
 	 * ----------------Fetch all dataList--------------------
 	 *  
 	 */
-	public DataList[] fetchDataList(String plantName, String elementName, String dataSourceName, String startDate, String endDate) {
+	public DataList[] fetchDataList(int dataSource_ID, String startDate, String endDate) {
+		
+		int aggregationType = 11;
+		String grouping ="day";
 		
 		//String datasourcesURL = "api/DataList?dataSourceId=67054&startDate=1699837200&endDate=1700179199&aggregationType=11&grouping=day";
-		dataListURL = this.propertiesGpmPlus.getGpmPlusWebApi().getUrl()
-				+ "/api/DataList?dataSourceId=" + getDataSourceID_By_DatasourceName(plantName, elementName, dataSourceName) 
+		String dataListURL = this.propertiesGpmPlus.getGpmPlusWebApi().getUrl()
+				+ "/api/DataList?dataSourceId=" + dataSource_ID 
 				+ "&startDate=" + getUnixTimestamp(startDate)
 				+ "&endDate=" + getUnixTimestamp(endDate) 
-				+ "&aggregationType=" + this.propertiesGpmPlus.getDataListParams().getAggregationType()
-				+ "&grouping=" + this.propertiesGpmPlus.getDataListParams().getGrouping();
+				+ "&aggregationType=" + aggregationType
+				+ "&grouping=" + grouping;
 		
 		HttpEntity<HttpHeaders> request = build_the_request();
-		
-//		LOG.info("\n\n----------------------------------------------------------------------------------------------------------");
-//		LOG.info("Endpoint for the request : "+ dataListURL+"");
-		
+//		long start =System.currentTimeMillis();			
 		ResponseEntity<DataList[]> response = restTemplate.exchange(
 													dataListURL, 
 													HttpMethod.GET, 
 													request, 
 													DataList[].class);  
 		
+//		System.out.println("dataList fetch time: " + (System.currentTimeMillis()-start) + "    "+ dataListURL);
 		DataList[] dataLists = response.getBody();
-		
-/*		System.out.println("[");
-		
-		if (dataLists != null) {
-			for (DataList dataList : dataLists) {
-				
-				System.out.println(" {\n"
-						+ "  DataSourceId : "+ dataList.getDataSourceId()
-						+","
-						+ "\n"
-						+ "  Date : "+ dataList.getDate()
-						+","
-						+ "\n"
-						+ "  Value : "+ dataList.getValue()
-						+"\n"
-						+" }");
-				
-			}
-			System.out.println("]\n");
-		}
-*/
 		return dataLists;
 	}
 	
 
 
     /*
-     * this method convert a given date time into unixtimestamp, we need this unixtimestamp value to get data for site production from endpoint  GPM PlusAPI
+     * -----------------Convert a given dateTime into unixtimestamp --------------------------------
 	*/
 	private static long getUnixTimestamp(String strDateTime) {
 
-		DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss", Locale.ENGLISH);
+		DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a", Locale.ENGLISH);
 		long unixTimestamp = 0;
 		dateFormat.setTimeZone(TimeZone.getTimeZone("GMT+02:00"));
 
@@ -406,7 +381,6 @@ public class GpmPlusApiDataDownloader {
 
 		return unixTimestamp;
 	 }
-	
 }
 
 
@@ -556,8 +530,53 @@ class DataList{
 	public void setValue(double value) {
 		this.value = value;
 	}
-	
+}
 
+class GpmExcelDTO {
+	
+	String date;
+	String siteName;
+	double kwh_MainMeter;
+	double kwh_SolarMeter;
+	double kwh_Genset;
+	
+	
+	public GpmExcelDTO() {
+	}
+	
+	
+	public String getDate() {
+		return date;
+	}
+	public void setDate(String date) {
+		this.date = date;
+	}
+	public String getSiteName() {
+		return siteName;
+	}
+	public void setSiteName(String siteName) {
+		this.siteName = siteName;
+	}
+	public double getKwh_MainMeter() {
+		return kwh_MainMeter;
+	}
+	public void setKwh_MainMeter(double kwh_MainMeter) {
+		this.kwh_MainMeter = kwh_MainMeter;
+	}
+	public double getKwh_SolarMeter() {
+		return kwh_SolarMeter;
+	}
+	public void setKwh_SolarMeter(double kwh_SolarMeter) {
+		this.kwh_SolarMeter = kwh_SolarMeter;
+	}
+	public double getKwh_Genset() {
+		return kwh_Genset;
+	}
+	public void setKwh_Genset(double kwh_Genset) {
+		this.kwh_Genset = kwh_Genset;
+	}
+	
+	
 }
 
 

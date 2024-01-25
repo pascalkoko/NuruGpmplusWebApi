@@ -53,26 +53,6 @@ public class PropertiesGpmPlus {
 	 }
 	
 	
-	public static class DataListParams{
-		
-		int aggregationType;
-		String grouping;
-		
-		public int getAggregationType() {
-			return aggregationType;
-		}
-		public void setAggregationType(int aggregationType) {
-			this.aggregationType = aggregationType;
-		}
-		public String getGrouping() {
-			return grouping;
-		}
-		public void setGrouping(String grouping) {
-			this.grouping = grouping;
-		}
-		
-	}
-	
 	
 	@NotNull
 	private GpmPlusWebApi gpmPlusWebApi;
@@ -85,17 +65,6 @@ public class PropertiesGpmPlus {
 
 	public void setGpmPlusWebApi(GpmPlusWebApi gpmpluswebapi) {
 		this.gpmPlusWebApi = gpmpluswebapi;
-	}
-
-	@NotNull
-	private DataListParams dataListParams;
-
-
-	public DataListParams getDataListParams() {
-		return dataListParams;
-	}
-	public void setDataListParams(DataListParams dataListParams) {
-		this.dataListParams = dataListParams;
 	}
 
 
