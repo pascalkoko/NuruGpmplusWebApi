@@ -9,33 +9,19 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/gpm/api")
 public class GpmApiController {
     
-/*	private GpmPlusApiDataDownloader gpmPlusApiDataDownloader;
-	
-	public GpmApiController(GpmPlusApiDataDownloader gpmPlusApiDataDownloader) {
-		this.gpmPlusApiDataDownloader = gpmPlusApiDataDownloader;
-	}
+/*	private Gpm_Authentication authentication;
 
-	@GetMapping("/plants") 
-	public   Plant[] getAllPlants(){
-		return gpmPlusApiDataDownloader.fetchPlants();
-	}
-
-	
-	
-	@GetMapping("/plant/element") 
-	public   Element[] getPlantElements(){
-		return gpmPlusApiDataDownloader.fetchPlantElements("Tadu");
+	public GpmApiController(Gpm_Authentication authentication) {
+		this.authentication = authentication;
 	}
 	
-	@GetMapping("/plant/element/datasource") 
-	public   DataSource[] getPlantElementsDatasources(){
-		return gpmPlusApiDataDownloader.fetchElementDataSources("KIVUE", "Main Meter");
-	}
-	
-	
-	@GetMapping("/datalist") 
-	public   DataList[] getDataList(){
-		return gpmPlusApiDataDownloader.fetchDataList("KIVUE", "PV Generation Meter", "EXPORTED ACTIVE ENERGY", "2023-11-01 10:00:00", "2023-11-01 09:59:59");
+	@GetMapping("/token")
+	public void print(){
+		
+		authentication.determineAuthorizationHeaderValue();
+		
 	}
 	*/
+	
+
 }

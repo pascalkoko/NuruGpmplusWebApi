@@ -11,6 +11,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 @EnableConfigurationProperties(PropertiesGpmPlus.class)
 public class GpmApiCallApplication implements CommandLineRunner{
 	
+
 	private GpmPlusApiDataDownloader gpmPlusApiDataDownloader;
 	
 	public GpmApiCallApplication(GpmPlusApiDataDownloader gpmPlusApiDataDownloader) {
@@ -25,12 +26,10 @@ public class GpmApiCallApplication implements CommandLineRunner{
 	
 	@Override
 	public void  run(String...args) throws Exception {
+
+		 Collection<ExcelDTO> gpmReports= gpmPlusApiDataDownloader.build_GPM_Report();
 		
-		 Collection<GpmExcelDTO> gpmExcelReports= gpmPlusApiDataDownloader.get_Gpm_Reports();
-		
-		for (GpmExcelDTO excelDTO : gpmExcelReports) {
-			
-			if (excelDTO.getDate()!= null && excelDTO.getSiteName() != null) {
+		for (ExcelDTO excelDTO : gpmReports) {
 				
 				System.out.println("\n{\n"
 						+ "  Date :"+ excelDTO.getDate()
@@ -45,12 +44,19 @@ public class GpmApiCallApplication implements CommandLineRunner{
 						+ "  kwh Solar : "+ excelDTO.getKwh_SolarMeter()
 						+","
 						+ "\n"
-						+ "  kwh Genset : "+ excelDTO.getKwh_Genset()
+						+ "  kwh Genset_1 : "+ excelDTO.getKwh_Genset1()
+						+","
+						+ "\n"
+						+ "  kwh Genset_2 : "+ excelDTO.getKwh_Genset2()
+						+","
+						+ "\n"
+						+ "  kwh TotalGenset : "+ (excelDTO.getKwh_Genset1() + excelDTO.getKwh_Genset2())
 						+"\n"
 						+" }");
-			}
+			
 		}
-         
+        
+		
 	
 	} 
 	

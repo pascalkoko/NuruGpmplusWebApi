@@ -13,7 +13,7 @@ import jakarta.validation.constraints.NotNull;
 @Validated
 public class PropertiesGpmPlus {
 	
-	public static class GpmPlusWebApi{
+	public static class Authentication{
 		   
 		@NotNull
 		@URL
@@ -55,16 +55,16 @@ public class PropertiesGpmPlus {
 	
 	
 	@NotNull
-	private GpmPlusWebApi gpmPlusWebApi;
+	private Authentication authentication;
 
 
-	public GpmPlusWebApi getGpmPlusWebApi() {
-		return gpmPlusWebApi;
+	public Authentication getAuthentication() {
+		return authentication;
 	}
 
 
-	public void setGpmPlusWebApi(GpmPlusWebApi gpmpluswebapi) {
-		this.gpmPlusWebApi = gpmpluswebapi;
+	public void setAuthentication(Authentication authentication) {
+		this.authentication = authentication;
 	}
 
 

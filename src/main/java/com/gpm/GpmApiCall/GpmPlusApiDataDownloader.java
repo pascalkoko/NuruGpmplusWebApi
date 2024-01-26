@@ -24,15 +24,16 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 @Component
 public class GpmPlusApiDataDownloader {
 	
-	private static final Logger LOG = LoggerFactory.getLogger(GpmPlusApiDataDownloader.class);
-	RestTemplate restTemplate;
-	private PropertiesGpmPlus propertiesGpmPlus;
+	private static final String DATE_START ="2023-11-01 10:00:00 AM";
+	private static final String DATE_END   = "2023-11-01 11:00:00 AM";
 	
-	String startDate ="2023-11-01 10:00:00 AM";
-	String  endDate = "2023-11-01 11:00:00 AM";
-	Collection<GpmExcelDTO> excelDTOs;
-    GpmExcelDTO excelDTO;
-    String dateReport;
+	//private static final Logger LOG = LoggerFactory.getLogger(GpmPlusApiDataDownloader.class);
+	private RestTemplate restTemplate;
+	private PropertiesGpmPlus propertiesGpmPlus;
+		
+    // this object will contains the report for all the 3 sites per day 
+	Collection<ExcelDTO> gpmReports= new HashSet<ExcelDTO>();
+    //String dateReport;
     
 
 	public GpmPlusApiDataDownloader(
@@ -44,206 +45,81 @@ public class GpmPlusApiDataDownloader {
      /*
 	  -----return a collection of 
 	 */
-	public Collection<GpmExcelDTO>  get_Gpm_Reports() {
-		
-		excelDTO = new GpmExcelDTO();
-		excelDTOs = new HashSet<GpmExcelDTO>();
+	public Collection<ExcelDTO>  build_GPM_Report() {
 		
 		long strDate = System.currentTimeMillis();
-		
 		Plant[] plants = fetchPlants();
-		DataSource[] element_Datasources;
 		
 		for (Plant plant : plants) {
-			
-			if (plant.getName().equals("KIVUE")) {				
+			String plantName = plant.Name();
+		    ExcelDTO excelDTO = new ExcelDTO();
+			excelDTO.setSiteName(plantName);
+			Element[] plantElements = fetchPlantElements(plant.Id());
+			for (Element  element : plantElements) {
+				DataSource[] element_Datasources;	
 				
-				GpmExcelDTO goma_gpmReport = new GpmExcelDTO();	
-				goma_gpmReport.setSiteName(plant.getName());
-				
-				double kwh_Genset1=0;
-				double kwh_Genset2 = 0;
-				
-				Element[] plantElements = fetchPlantElements(plant.getId());
-			
-				for (Element element : plantElements) {
-					
-					if (element.getName().equals("Main Meter")) {
-						
-						element_Datasources = fetchElementDataSources(plant.getId(), element.getIdentifier());
-						
-						for (DataSource dataSource : element_Datasources) {
-							if (dataSource.getDataSourceName().equals("EXPORTED ACTIVE ENERGY")) {
-								
-								int dataSource_ID = dataSource.getDataSourceId();
-								
-								goma_gpmReport.setKwh_MainMeter(get_kwh(dataSource_ID, element));						}
+				if (element.Name().equals("Main Meter")) {
+					element_Datasources = fetchElementDataSources(plant.Id(), element.Identifier());
+					for (DataSource dataSource : element_Datasources) {
+						if (dataSource.DataSourceName().equals("EXPORTED ACTIVE ENERGY")) {
+							excelDTO.setKwh_MainMeter(get_kwh(dataSource.DataSourceId()));
 						}
-						
-					}else if (element.getName().equals("PV Generation Meter")) {
-						
-						element_Datasources = fetchElementDataSources(plant.getId(), element.getIdentifier());
-						
-						for (DataSource dataSource : element_Datasources) {
-							if (dataSource.getDataSourceName().equals("EXPORTED ACTIVE ENERGY")) {
-								
-								int dataSource_ID = dataSource.getDataSourceId();
-								
-								goma_gpmReport.setKwh_SolarMeter(get_kwh(dataSource_ID, element));
-							}
-						}
-						
-					}else if (element.getName().equals("Genset 1 Meter")) {
-						
-						element_Datasources = fetchElementDataSources(plant.getId(), element.getIdentifier());
-						
-						for (DataSource dataSource : element_Datasources) {
-							if (dataSource.getDataSourceName().equals("EXPORTED ACTIVE ENERGY")) {
-								
-								int dataSource_ID = dataSource.getDataSourceId();
-								
-								kwh_Genset1 = get_kwh(dataSource_ID, element);
-						
-							}
-						}
-						
-					}else if (element.getName().equals("Genset 2 Meter")) {
-						
-						element_Datasources = fetchElementDataSources(plant.getId(), element.getIdentifier());
-						
-						for (DataSource dataSource : element_Datasources) {
-							if (dataSource.getDataSourceName().equals("EXPORTED ACTIVE ENERGY")) {
-								
-								int dataSource_ID = dataSource.getDataSourceId();
-								kwh_Genset2 = get_kwh(dataSource_ID, element);
-							}
-						}
-						
-					}	
-					goma_gpmReport.setKwh_Genset(kwh_Genset1 + kwh_Genset2);
-					goma_gpmReport.setDate(dateReport);
-					excelDTOs.add(goma_gpmReport);
-				}
-				
-				
-			}else if (plant.getName().equals("Tadu") || plant.getName().equals("Faradje")) {
-				
-				GpmExcelDTO tadu_gpmReport = new GpmExcelDTO();	
-				GpmExcelDTO faradje_gpmReport = new GpmExcelDTO();
-				
-				if (plant.getName().equals("Tadu")) {
-
-					tadu_gpmReport.setSiteName(plant.getName());
-					
-				} else if (plant.getName().equals("Faradje")) {
-
-					faradje_gpmReport.setSiteName(plant.getName());
-				}
-				
-				Element[] elements = fetchPlantElements(plant.getId());
-				
-				for (Element element : elements) {
-					if (element.getName().equals("Meter Load")) {
-						
-						element_Datasources = fetchElementDataSources(plant.getId(), element.getIdentifier());
-						
-						for (DataSource dataSource : element_Datasources) {
-							if (dataSource.getDataSourceName().equals("EXPORTED ACTIVE ENERGY")) {
-								
-								int dataSource_ID = dataSource.getDataSourceId();
-								
-								if (plant.getName().equals("Tadu")) {
-									
-									tadu_gpmReport.setKwh_MainMeter(get_kwh(dataSource_ID, element));
-									
-								} else if (plant.getName().equals("Faradje")){
-									
-									faradje_gpmReport.setKwh_MainMeter(get_kwh(dataSource_ID, element));
-								}
-							}
-						}
-						
-					}else if (element.getName().equals("Meter Solar PV")) {
-						
-						element_Datasources = fetchElementDataSources(plant.getId(), element.getIdentifier());
-						for (DataSource dataSource : element_Datasources) {
-							if (dataSource.getDataSourceName().equals("EXPORTED ACTIVE ENERGY")) {
-								
-								int dataSource_ID = dataSource.getDataSourceId();
-								
-								if (plant.getName().equals("Tadu")) {
-									
-									tadu_gpmReport.setKwh_SolarMeter(get_kwh(dataSource_ID, element));
-									
-								} else if (plant.getName().equals("Faradje")){
-									
-									faradje_gpmReport.setKwh_SolarMeter(get_kwh(dataSource_ID, element));
-								}
-							}
-						}
-						
-					}else if (element.getName().equals("Meter Diesel Generator")) {
-						
-						element_Datasources = fetchElementDataSources(plant.getId(), element.getIdentifier());
-						for (DataSource dataSource : element_Datasources) {
-							if (dataSource.getDataSourceName().equals("EXPORTED ACTIVE ENERGY")) {
-								
-								int dataSource_ID = dataSource.getDataSourceId();
-								
-								if (plant.getName().equals("Tadu")) {
-									
-									tadu_gpmReport.setKwh_Genset(get_kwh(dataSource_ID, element));
-									
-								} else if (plant.getName().equals("Faradje")){
-									
-									faradje_gpmReport.setKwh_Genset(get_kwh(dataSource_ID, element));
-								}
-								
-							}
-						}
-						
 					}
-				}
-				tadu_gpmReport.setDate(dateReport); 
-				faradje_gpmReport.setDate(dateReport);
-				excelDTOs.add(tadu_gpmReport); 
-				excelDTOs.add(faradje_gpmReport);
+				}else if (element.Name().equals("Solar PV Meter")) {
+					element_Datasources = fetchElementDataSources(plant.Id(), element.Identifier());	
+					for (DataSource dataSource : element_Datasources) {
+						if (dataSource.DataSourceName().equals("EXPORTED ACTIVE ENERGY")) {	
+							excelDTO.setKwh_SolarMeter(get_kwh(dataSource.DataSourceId()));
+						}
+					}
+				}else if (element.Name().equals("Genset 1 Meter")) {
+					element_Datasources = fetchElementDataSources(plant.Id(), element.Identifier());					
+					for (DataSource dataSource : element_Datasources) {						
+						if (dataSource.DataSourceName().equals("EXPORTED ACTIVE ENERGY")) {							
+							double kwh_Genset1 = get_kwh(dataSource.DataSourceId());							
+							excelDTO.setKwh_Genset1(kwh_Genset1);
+						}
+					}
+				  }else if (element.Name().equals("Genset 2 Meter")) {				
+					    //double kwh_Genset2 =0;
+						element_Datasources = fetchElementDataSources(plant.Id(), element.Identifier());
+						for (DataSource dataSource : element_Datasources) {	
+							if (dataSource.DataSourceName().equals("EXPORTED ACTIVE ENERGY")) {
+								double kwh_Genset2 = get_kwh(dataSource.DataSourceId());
+								excelDTO.setKwh_Genset2(kwh_Genset2);
+								//System.out.println( "\n "+plantName+" kwh Genset_2 :"+kwh_Genset2);
+							}
+						}
+					  }
+				
+				//excelDTO.setKwh_Genset(kwh_Genset1 + kwh_Genset2);
+			}	
+			excelDTO.setDate(DATE_START);
+			if (excelDTO.getSiteName() != null) {
+				gpmReports.add(excelDTO);
 			}
-
-			
 		}
 		System.out.println(" \n Time taken to call all endpoints and retreive final data :"+((System.currentTimeMillis() - strDate)));
-		return excelDTOs;
+		return gpmReports;
 	}
 
-
-	//  return the real value  of energy in kwh  for each element
-	
-	private double get_kwh(int datasourceID, Element element) {
-
-		DataList[] dataLists = fetchDataList(datasourceID, startDate, endDate);
-		if (dataLists != null && dataLists.length ==1) {    
-	     
-			dateReport = dataLists[0].getDate(); 
-			
-		}else {
-			throw new RuntimeException(" The request fetch dataList returned more than one object");
+	//  return the value  of energy in kwh  for each element
+	private double get_kwh(int datasourceID) {		
+		DataList[] dataLists = fetchDataList(datasourceID, DATE_START, DATE_END);
+		if (dataLists == null || dataLists.length != 1) {  
+			throw new RuntimeException(" The request fetch dataList returned null or more than one object");
 		}
-		return dataLists[0].getValue();
+		return dataLists[0].Value();
 	}
 	
 	
-	 /*
-    	------build the request
-	*/ 
+	//build the request 
 	private  HttpEntity<HttpHeaders> build_the_request() {
-		
 		String authorizationHeader = "Bearer "
-							+this.propertiesGpmPlus.getGpmPlusWebApi().getAccessToken();
+							+this.propertiesGpmPlus.getAuthentication().getAccessToken();
 		
 		HttpHeaders headers = new HttpHeaders();
 		headers.set("Authorization",authorizationHeader);
-		
 		return new HttpEntity<>(headers);
 	}
 
@@ -253,9 +129,9 @@ public class GpmPlusApiDataDownloader {
 	 * with this method we are getting data for all devices that are installed at a nuru site (Goma, Tadu and Faradje sites); 
 	 * 
 	 */ 
+	//Fetch all Plants from GpmPlus API
 	public Plant[] fetchPlants() {
-		
-		String plantsURL= this.propertiesGpmPlus.getGpmPlusWebApi().getUrl() 
+		String plantsURL= this.propertiesGpmPlus.getAuthentication().getUrl() 
 				+ "/api/Plant";
 		
 		HttpEntity<HttpHeaders> request = build_the_request();
@@ -277,15 +153,13 @@ public class GpmPlusApiDataDownloader {
 	 *  
 	 */
 	public Element[] fetchPlantElements(int plant_ID){
-		
 		//static String elementsURL = "api/Plant/{4}/Element";
-		String elementsURL = this.propertiesGpmPlus.getGpmPlusWebApi().getUrl() 
+		String elementsURL = this.propertiesGpmPlus.getAuthentication().getUrl() 
 				+ "/api/Plant"
 				+ "/"+ plant_ID
 				+ "/Element";
 		
 		HttpEntity<HttpHeaders> request = build_the_request();
-
 //		long start =System.currentTimeMillis();	
 		ResponseEntity<Element[]> response = restTemplate.exchange(
 													elementsURL, 
@@ -305,16 +179,13 @@ public class GpmPlusApiDataDownloader {
 	 *  
 	 */
 	public DataSource[] fetchElementDataSources(int plant_ID, int element_ID) {
-		
 		//String datasourcesURL = "api/Plant/{4}/Element/{8815}/Datasource";
-		String datasourcesURL =this.propertiesGpmPlus.getGpmPlusWebApi().getUrl() 
+		String datasourcesURL =this.propertiesGpmPlus.getAuthentication().getUrl() 
 				+ "/api/Plant"
 				+ "/" + plant_ID
 				+ "/Element"
 				+ "/" + element_ID
-				+ "/Datasource";
-		
-			
+				+ "/Datasource";		
 		
 		HttpEntity<HttpHeaders> request = build_the_request();
 //		long start =System.currentTimeMillis();				
@@ -335,12 +206,10 @@ public class GpmPlusApiDataDownloader {
 	 *  
 	 */
 	public DataList[] fetchDataList(int dataSource_ID, String startDate, String endDate) {
-		
 		int aggregationType = 11;
 		String grouping ="day";
-		
 		//String datasourcesURL = "api/DataList?dataSourceId=67054&startDate=1699837200&endDate=1700179199&aggregationType=11&grouping=day";
-		String dataListURL = this.propertiesGpmPlus.getGpmPlusWebApi().getUrl()
+		String dataListURL = this.propertiesGpmPlus.getAuthentication().getUrl()
 				+ "/api/DataList?dataSourceId=" + dataSource_ID 
 				+ "&startDate=" + getUnixTimestamp(startDate)
 				+ "&endDate=" + getUnixTimestamp(endDate) 
@@ -366,11 +235,9 @@ public class GpmPlusApiDataDownloader {
      * -----------------Convert a given dateTime into unixtimestamp --------------------------------
 	*/
 	private static long getUnixTimestamp(String strDateTime) {
-
 		DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a", Locale.ENGLISH);
 		long unixTimestamp = 0;
 		dateFormat.setTimeZone(TimeZone.getTimeZone("GMT+02:00"));
-
 		try {
 			unixTimestamp = dateFormat.parse(strDateTime).getTime();
 			unixTimestamp = unixTimestamp / 1000;
@@ -378,7 +245,6 @@ public class GpmPlusApiDataDownloader {
 		} catch (ParseException e) {
 			e.printStackTrace();
 		}
-
 		return unixTimestamp;
 	 }
 }
@@ -386,198 +252,32 @@ public class GpmPlusApiDataDownloader {
 
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-class Plant{
-	
-	@JsonProperty("Id")
-	private Integer Id;
-	
-	@JsonProperty("Name")
-	private String Name;
-	
-	public Integer getId() {
-		return Id;
-	}
-	public void setId(Integer id) {
-		Id = id;
-	}
-	public String getName() {
-		return Name;
-	}
-	public void setName(String name) {
-		Name = name;
-	}
+record Plant(
+		Integer Id,
+		String Name){
 }
-
-
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-class Element{
-	
-	@JsonProperty("Identifier")
-	private Integer Identifier;
-	@JsonProperty("UniqueID")
-	private String UniqueID;
-	@JsonProperty("Name")
-	private String name;
-	@JsonProperty("Type")
-	private Integer Type;
-	@JsonProperty("TypeString")
-	private String TypeString;
-	@JsonProperty("ParentId")
-	private Integer ParentId;
-	public Integer getIdentifier() {
-		return Identifier;
-	}
-	public void setIdentifier(Integer identifier) {
-		Identifier = identifier;
-	}
-	public String getUniqueID() {
-		return UniqueID;
-	}
-	public void setUniqueID(String uniqueID) {
-		UniqueID = uniqueID;
-	}
-	public String getName() {
-		return name;
-	}
-	public void setName(String name) {
-		this.name = name;
-	}
-	public Integer getType() {
-		return Type;
-	}
-	public void setType(Integer type) {
-		Type = type;
-	}
-	public String getTypeString() {
-		return TypeString;
-	}
-	public void setTypeString(String typeString) {
-		TypeString = typeString;
-	}
-	public Integer getParentId() {
-		return ParentId;
-	}
-	public void setParentId(Integer parentId) {
-		ParentId = parentId;
-	}
+record  Element (
+		Integer Identifier, 
+		String Name) {
 }
-
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-class DataSource{
-	
-	@JsonProperty("ElementId")
-	private Integer elementId;
-	@JsonProperty("DataSourceId")
-	private Integer dataSourceId;
-	@JsonProperty("DataSourceName")
-	private String dataSourceName;
-	@JsonProperty("Units")
-	private String Units;
-	
-	public Integer getElementId() {
-		return elementId;
-	}
-	public void setElementId(Integer elementId) {
-		this.elementId = elementId;
-	}
-	public Integer getDataSourceId() {
-		return dataSourceId;
-	}
-	public void setDataSourceId(Integer dataSourceId) {
-		this.dataSourceId = dataSourceId;
-	}
-	public String getDataSourceName() {
-		return dataSourceName;
-	}
-	public void setDataSourceName(String dataSourceName) {
-		this.dataSourceName = dataSourceName;
-	}
-	public String getUnits() {
-		return Units;
-	}
-	public void setUnits(String units) {
-		Units = units;
-	}
+record  DataSource(
+		Integer ElementId,
+		Integer DataSourceId,
+		String DataSourceName) {
 }
-
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-class DataList{
-	
-	@JsonProperty("DataSourceId")
-	private Integer dataSourceId;
-	@JsonProperty("Date")
-	private String date;
-	@JsonProperty("Value")
-	private double value;
-	public Integer getDataSourceId() {
-		return dataSourceId;
-	}
-	public void setDataSourceId(Integer dataSourceId) {
-		this.dataSourceId = dataSourceId;
-	}
-	public String getDate() {
-		return date;
-	}
-	public void setDate(String date) {
-		this.date = date;
-	}
-	public double getValue() {
-		return value;
-	}
-	public void setValue(double value) {
-		this.value = value;
-	}
+record DataList(
+		Integer DataSourceId,
+		String Date,
+		double Value) {
 }
 
-class GpmExcelDTO {
-	
-	String date;
-	String siteName;
-	double kwh_MainMeter;
-	double kwh_SolarMeter;
-	double kwh_Genset;
-	
-	
-	public GpmExcelDTO() {
-	}
-	
-	
-	public String getDate() {
-		return date;
-	}
-	public void setDate(String date) {
-		this.date = date;
-	}
-	public String getSiteName() {
-		return siteName;
-	}
-	public void setSiteName(String siteName) {
-		this.siteName = siteName;
-	}
-	public double getKwh_MainMeter() {
-		return kwh_MainMeter;
-	}
-	public void setKwh_MainMeter(double kwh_MainMeter) {
-		this.kwh_MainMeter = kwh_MainMeter;
-	}
-	public double getKwh_SolarMeter() {
-		return kwh_SolarMeter;
-	}
-	public void setKwh_SolarMeter(double kwh_SolarMeter) {
-		this.kwh_SolarMeter = kwh_SolarMeter;
-	}
-	public double getKwh_Genset() {
-		return kwh_Genset;
-	}
-	public void setKwh_Genset(double kwh_Genset) {
-		this.kwh_Genset = kwh_Genset;
-	}
-	
-	
-}
+
 
 
 
