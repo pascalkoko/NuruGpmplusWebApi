@@ -5,15 +5,18 @@ import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.TimeZone;
 
+import org.json.simple.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
@@ -24,16 +27,15 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 @Component
 public class GpmPlusApiDataDownloader {
 	
-	private static final String DATE_START ="2023-11-01 10:00:00 AM";
-	private static final String DATE_END   = "2023-11-01 11:00:00 AM";
+	private static final String DATE_START ="2023-11-21 10:00:00 AM";
+	private static final String DATE_END   = "2023-11-21 11:00:00 AM";
 	
 	//private static final Logger LOG = LoggerFactory.getLogger(GpmPlusApiDataDownloader.class);
 	private RestTemplate restTemplate;
 	private PropertiesGpmPlus propertiesGpmPlus;
-		
+	private String bearerToken;
     // this object will contains the report for all the 3 sites per day 
 	Collection<ExcelDTO> gpmReports= new HashSet<ExcelDTO>();
-    //String dateReport;
     
 
 	public GpmPlusApiDataDownloader(
@@ -41,18 +43,19 @@ public class GpmPlusApiDataDownloader {
 		
 		this.propertiesGpmPlus = propertiesGpmPlus;
 		this.restTemplate = new RestTemplate();
+		this.bearerToken = generateGpmPlusBeareToken();
 	}
      /*
 	  -----return a collection of 
 	 */
 	public Collection<ExcelDTO>  build_GPM_Report() {
-		
 		long strDate = System.currentTimeMillis();
 		Plant[] plants = fetchPlants();
 		
 		for (Plant plant : plants) {
 			String plantName = plant.Name();
 		    ExcelDTO excelDTO = new ExcelDTO();
+			excelDTO.setDate(DATE_START);
 			excelDTO.setSiteName(plantName);
 			Element[] plantElements = fetchPlantElements(plant.Id());
 			for (Element  element : plantElements) {
@@ -90,11 +93,9 @@ public class GpmPlusApiDataDownloader {
 								//System.out.println( "\n "+plantName+" kwh Genset_2 :"+kwh_Genset2);
 							}
 						}
-					  }
-				
+					  }	
 				//excelDTO.setKwh_Genset(kwh_Genset1 + kwh_Genset2);
 			}	
-			excelDTO.setDate(DATE_START);
 			if (excelDTO.getSiteName() != null) {
 				gpmReports.add(excelDTO);
 			}
@@ -103,6 +104,7 @@ public class GpmPlusApiDataDownloader {
 		return gpmReports;
 	}
 
+	
 	//  return the value  of energy in kwh  for each element
 	private double get_kwh(int datasourceID) {		
 		DataList[] dataLists = fetchDataList(datasourceID, DATE_START, DATE_END);
@@ -114,44 +116,34 @@ public class GpmPlusApiDataDownloader {
 	
 	
 	//build the request 
-	private  HttpEntity<HttpHeaders> build_the_request() {
-		String authorizationHeader = "Bearer "
-							+this.propertiesGpmPlus.getAuthentication().getAccessToken();
-		
+	private  HttpEntity<HttpHeaders> buildRequest() {
+		String authorizationHeader = bearerToken;
 		HttpHeaders headers = new HttpHeaders();
 		headers.set("Authorization",authorizationHeader);
 		return new HttpEntity<>(headers);
 	}
 
 	
-	/*
-	 * ----------------------- Fetch all Plants from GpmPlus API--------------------
-	 * with this method we are getting data for all devices that are installed at a nuru site (Goma, Tadu and Faradje sites); 
-	 * 
-	 */ 
+
 	//Fetch all Plants from GpmPlus API
 	public Plant[] fetchPlants() {
 		String plantsURL= this.propertiesGpmPlus.getAuthentication().getUrl() 
 				+ "/api/Plant";
 		
-		HttpEntity<HttpHeaders> request = build_the_request();
-//		long start =System.currentTimeMillis();				
+		HttpEntity<HttpHeaders> request = buildRequest();
+		//long start =System.currentTimeMillis();				
 		ResponseEntity<Plant[]> response = restTemplate.exchange(
 													plantsURL, 
 													HttpMethod.GET, 
 													request, 
 													Plant[].class);   
 		
-//		System.out.println("plants  fetch time: " + (System.currentTimeMillis()-start)+ "    "+ plantsURL);			
+		//System.out.println("plants  fetch time: " + (System.currentTimeMillis()-start)+ "    "+ plantsURL);			
 		return response.getBody();
 	}
 	
-	
-	
-	/*
-	 * ----------------Fetch all plant Elements--------------------
-	 *  
-	 */
+
+	//Fetch all plant Elements
 	public Element[] fetchPlantElements(int plant_ID){
 		//static String elementsURL = "api/Plant/{4}/Element";
 		String elementsURL = this.propertiesGpmPlus.getAuthentication().getUrl() 
@@ -159,25 +151,21 @@ public class GpmPlusApiDataDownloader {
 				+ "/"+ plant_ID
 				+ "/Element";
 		
-		HttpEntity<HttpHeaders> request = build_the_request();
-//		long start =System.currentTimeMillis();	
+		HttpEntity<HttpHeaders> request = buildRequest();
+		//long start =System.currentTimeMillis();	
 		ResponseEntity<Element[]> response = restTemplate.exchange(
 													elementsURL, 
 													HttpMethod.GET, 
 													request, 
 													Element[].class);  
 		
-//		System.out.println("Elements  fetch time: " + (System.currentTimeMillis()-start)+ "    "+ elementsURL);		
+		//System.out.println("Elements  fetch time: " + (System.currentTimeMillis()-start)+ "    "+ elementsURL);		
 		Element[] plantElementsFromGpmApi = response.getBody();	
 		return plantElementsFromGpmApi;
 	}
 	
 	
-	
-	/*
-	 * ----------------Fetch all dataSources--------------------
-	 *  
-	 */
+	//Fetch all datasource for specific  element Identifier
 	public DataSource[] fetchElementDataSources(int plant_ID, int element_ID) {
 		//String datasourcesURL = "api/Plant/{4}/Element/{8815}/Datasource";
 		String datasourcesURL =this.propertiesGpmPlus.getAuthentication().getUrl() 
@@ -187,24 +175,21 @@ public class GpmPlusApiDataDownloader {
 				+ "/" + element_ID
 				+ "/Datasource";		
 		
-		HttpEntity<HttpHeaders> request = build_the_request();
-//		long start =System.currentTimeMillis();				
+		HttpEntity<HttpHeaders> request = buildRequest();
+		//long start =System.currentTimeMillis();				
 		ResponseEntity<DataSource[]> response = restTemplate.exchange(
 													datasourcesURL, 
 													HttpMethod.GET, 
 													request, 
 													DataSource[].class);  
 		
-//		System.out.println("datasource  fetch time: " + (System.currentTimeMillis()-start) + "    "+ datasourcesURL);	
+		//System.out.println("datasource  fetch time: " + (System.currentTimeMillis()-start) + "    "+ datasourcesURL);	
 		DataSource[] deviceDataSources = response.getBody();
 		return deviceDataSources;
 	}
 	
-	
-	/*
-	 * ----------------Fetch all dataList--------------------
-	 *  
-	 */
+
+	//Fetch  dataList for a given datasource ID 
 	public DataList[] fetchDataList(int dataSource_ID, String startDate, String endDate) {
 		int aggregationType = 11;
 		String grouping ="day";
@@ -216,24 +201,20 @@ public class GpmPlusApiDataDownloader {
 				+ "&aggregationType=" + aggregationType
 				+ "&grouping=" + grouping;
 		
-		HttpEntity<HttpHeaders> request = build_the_request();
-//		long start =System.currentTimeMillis();			
+		HttpEntity<HttpHeaders> request = buildRequest();
+		//long start =System.currentTimeMillis();			
 		ResponseEntity<DataList[]> response = restTemplate.exchange(
 													dataListURL, 
 													HttpMethod.GET, 
 													request, 
 													DataList[].class);  
 		
-//		System.out.println("dataList fetch time: " + (System.currentTimeMillis()-start) + "    "+ dataListURL);
+		//System.out.println("dataList fetch time: " + (System.currentTimeMillis()-start) + "    "+ dataListURL);
 		DataList[] dataLists = response.getBody();
 		return dataLists;
 	}
 	
-
-
-    /*
-     * -----------------Convert a given dateTime into unixtimestamp --------------------------------
-	*/
+	// Convert a given dataTime into timestamp
 	private static long getUnixTimestamp(String strDateTime) {
 		DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a", Locale.ENGLISH);
 		long unixTimestamp = 0;
@@ -247,6 +228,38 @@ public class GpmPlusApiDataDownloader {
 		}
 		return unixTimestamp;
 	 }
+	
+	
+	
+	private  String generateGpmPlusBeareToken(){		
+		String authenticationURL =this.propertiesGpmPlus.getAuthentication().getUrl()+"/api/Account/Token";
+		String username = this.propertiesGpmPlus.getAuthentication().getUsername();
+		String password = this.propertiesGpmPlus.getAuthentication().getPassword();
+					
+		HashMap< String, String> map = new HashMap<>();
+		map.put("username", username);
+		map.put("password", password);	
+		//set headers
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.APPLICATION_JSON);			
+		// build the request body as a Json Object  to generate the Token Credentials must be sent as a json Object {"username" :"dgdgdfgg", "password":"dfggfgdg"}
+		JSONObject json = new JSONObject();
+		json.putAll(map);
+		
+		HttpEntity<JSONObject>  request = new HttpEntity<JSONObject>(json,headers);
+			
+		ResponseEntity<TokenRet> tokenRetResponse = restTemplate.postForEntity(  
+																authenticationURL, 
+																request, 
+																TokenRet.class);
+			if (tokenRetResponse.getBody() != null) {
+				TokenRet token = tokenRetResponse.getBody();
+				// "bearer AQAAANCMnd8BFdERjHoA......."
+				return token.TokenType() + " " + token.AccessToken();
+			} else {
+				throw new RuntimeException("GpmPlus didn't deliver a Bearer token response body.");
+			}
+	}
 }
 
 
@@ -275,6 +288,14 @@ record DataList(
 		Integer DataSourceId,
 		String Date,
 		double Value) {
+}
+
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+ record TokenRet(
+		String TokenType,
+		String AccessToken) {
+
 }
 
 

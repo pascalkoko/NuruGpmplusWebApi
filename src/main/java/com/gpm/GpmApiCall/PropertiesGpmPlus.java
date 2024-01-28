@@ -22,8 +22,6 @@ public class PropertiesGpmPlus {
 		private String username;
 		@NotBlank
 		private String password;
-		@NotBlank
-		private String accessToken;
 		
 		public String getUrl() {
 			return url;
@@ -43,13 +41,6 @@ public class PropertiesGpmPlus {
 		public void setPassword(String password) {
 			this.password = password;
 		}
-		public String getAccessToken() {
-			return accessToken;
-		}
-		public void setAccessToken(String accessToken) {
-			this.accessToken = accessToken;
-		}
-		
 	 }
 	
 	
@@ -61,12 +52,7 @@ public class PropertiesGpmPlus {
 	public Authentication getAuthentication() {
 		return authentication;
 	}
-
-
 	public void setAuthentication(Authentication authentication) {
 		this.authentication = authentication;
 	}
-
-
-
 }
